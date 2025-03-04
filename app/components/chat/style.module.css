@@ -1,8 +1,11 @@
 .answerIcon {
   position: relative;
-  background: url(./icons/robot.svg);
+  background: url(./icons/fuzai.jpg);
+  background-size: contain;
+  border-radius: 50%;
 }
 
+/* 加载图标 */
 .typeingIcon {
   position: absolute;
   top: 0px;

@@ -33,15 +33,27 @@ const Main: FC<IMainProps> = () => {
   const isMobile = media === MediaType.mobile
   const hasSetAppConfig = APP_ID && API_KEY
 
+
+  // Token状态管理（解决SSR问题）
+  const [token, setToken] = useState<string | null>(null)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      setToken(urlParams.get('token'))
+    }
+  }, [])
+
   /*
-  * app info
+  *  应用可用性状态
   */
   const [appUnavailable, setAppUnavailable] = useState<boolean>(false)
   const [isUnknownReason, setIsUnknownReason] = useState<boolean>(false)
   const [promptConfig, setPromptConfig] = useState<PromptConfig | null>(null)
   const [inited, setInited] = useState<boolean>(false)
   // in mobile, show sidebar by click button
+  // 移动端侧边栏状态
   const [isShowSidebar, { setTrue: showSidebar, setFalse: hideSidebar }] = useBoolean(false)
+  // 图像上传配置
   const [visionConfig, setVisionConfig] = useState<VisionSettings | undefined>({
     enabled: false,
     number_limits: 2,
@@ -49,9 +61,42 @@ const Main: FC<IMainProps> = () => {
     transfer_methods: [TransferMethod.local_file],
   })
 
+
+
+  // Token验证逻辑
+  useEffect(() => {
+    const validateToken = async () => {
+      if (!token) {
+        setAppUnavailable(true)
+        return
+      }
+      try {
+        const response = await fetch('http://192.168.183.139:4000/validate-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token }),
+        })
+
+        const data = await response.json()
+
+        // 关键修复：根据验证结果更新状态
+        setAppUnavailable(!data.isValid) // ✅ 有效时设为 false
+
+      } catch (error) {
+        console.error('Token validation failed:', error)
+        setAppUnavailable(true)
+      }
+    }
+    validateToken()
+
+  }, [token])
+
+
   useEffect(() => {
     if (APP_INFO?.title)
-      document.title = `${APP_INFO.title} - Powered by Dify`
+      document.title = `${APP_INFO.title} - 福建广电网络集团`
   }, [APP_INFO?.title])
 
   // onData change thought (the produce obj). https://github.com/immerjs/immer/issues/576
@@ -62,9 +107,7 @@ const Main: FC<IMainProps> = () => {
     }
   }, [])
 
-  /*
-  * conversation info
-  */
+  /* 会话管理 */
   const {
     conversationList,
     setConversationList,
@@ -82,6 +125,7 @@ const Main: FC<IMainProps> = () => {
     setExistConversationInfo,
   } = useConversation()
 
+  // 聊天相关状态
   const [conversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, getConversationIdChangeBecauseOfNew] = useGetState(false)
   const [isChatStarted, { setTrue: setChatStarted, setFalse: setChatNotStarted }] = useBoolean(false)
   const handleStartChat = (inputs: Record<string, any>) => {
@@ -90,7 +134,7 @@ const Main: FC<IMainProps> = () => {
     setCurrInputs(inputs)
     setChatStarted()
     // parse variables in introduction
-    setChatList(generateNewChatListWithOpenStatement('', inputs))
+    setChatList(generateNewChatListWithOpenStatement('', inputs)) // 聊天列表DOM引用
   }
   const hasSetInputs = (() => {
     if (!isNewConversation)
@@ -103,7 +147,7 @@ const Main: FC<IMainProps> = () => {
   const conversationIntroduction = currConversationInfo?.introduction || ''
 
   const handleConversationSwitch = () => {
-    if (!inited)
+    if (!inited || appUnavailable)
       return
 
     // update inputs of current conversation
@@ -170,7 +214,7 @@ const Main: FC<IMainProps> = () => {
   }
 
   /*
-  * chat info. chat is under conversation.
+  * 聊天消息列表
   */
   const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
   const chatListDomRef = useRef<HTMLDivElement>(null)
@@ -216,14 +260,24 @@ const Main: FC<IMainProps> = () => {
     return []
   }
 
-  // init
+  // 初始化应用
   useEffect(() => {
+    // 新增 token 有效性检查（这是最关键的拦截点）
+    if (!token) {
+      setAppUnavailable(true)
+      return // 直接退出，不执行后续请求
+    }
+
+    if (appUnavailable) // 新增条件：如果应用不可用直接返回
+      return
+
     if (!hasSetAppConfig) {
       setAppUnavailable(true)
       return
     }
     (async () => {
       try {
+        // 处理会话数据
         const [conversationData, appParams] = await Promise.all([fetchConversations(), fetchAppParams()])
 
         // handle current conversation id
@@ -238,6 +292,7 @@ const Main: FC<IMainProps> = () => {
 
         // fetch new conversation info
         const { user_input_form, opening_statement: introduction, file_upload, system_parameters }: any = appParams
+        // 设置多语言
         setLocaleOnClient(APP_INFO.default_language, true)
         setNewConversationInfo({
           name: t('app.chat.newChatDefaultName'),
@@ -269,8 +324,9 @@ const Main: FC<IMainProps> = () => {
         }
       }
     })()
-  }, [])
+  }, [appUnavailable, token])
 
+  /* 消息处理逻辑 */
   const [isResponding, { setTrue: setRespondingTrue, setFalse: setRespondingFalse }] = useBoolean(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
   const { notify } = Toast
@@ -327,10 +383,15 @@ const Main: FC<IMainProps> = () => {
   }
 
   const handleSend = async (message: string, files?: VisionFile[]) => {
+    if (appUnavailable) { // 新增条件检查
+      notify({ type: 'error', message: t('app.errorMessage.appUnavailable') })
+      return
+    }
     if (isResponding) {
       notify({ type: 'info', message: t('app.errorMessage.waitForResponse') })
       return
     }
+    // 构建消息数据
     const data: Record<string, any> = {
       inputs: currInputs,
       query: message,
@@ -383,6 +444,7 @@ const Main: FC<IMainProps> = () => {
     const prevTempNewConversationId = getCurrConversationId() || '-1'
     let tempNewConversationId = ''
 
+    // 发送请求
     setRespondingTrue()
     sendChatMessage(data, {
       getAbortController: (abortController) => {
@@ -390,6 +452,8 @@ const Main: FC<IMainProps> = () => {
       },
       onData: (message: string, isFirstMessage: boolean, { conversationId: newConversationId, messageId, taskId }: any) => {
         if (!isAgentMode) {
+          // 处理流式响应数据
+          // 更新消息内容...
           responseItem.content = responseItem.content + message
         }
         else {
@@ -418,6 +482,7 @@ const Main: FC<IMainProps> = () => {
           questionItem,
         })
       },
+      // 完成后的处理（如更新会话列表）
       async onCompleted(hasError?: boolean) {
         if (hasError)
           return
@@ -584,6 +649,7 @@ const Main: FC<IMainProps> = () => {
     })
   }
 
+  // 反馈处理
   const handleFeedback = async (messageId: string, feedback: Feedbacktype) => {
     await updateFeedback({ url: `/messages/${messageId}/feedbacks`, body: { rating: feedback.rating } })
     const newChatList = chatList.map((item) => {
@@ -600,6 +666,8 @@ const Main: FC<IMainProps> = () => {
   }
 
   const renderSidebar = () => {
+    if (appUnavailable) // 如果应用不可用不渲染侧边栏
+      return null
     if (!APP_ID || !APP_INFO || !promptConfig)
       return null
     return (
@@ -613,7 +681,8 @@ const Main: FC<IMainProps> = () => {
   }
 
   if (appUnavailable)
-    return <AppUnavailable isUnknownReason={isUnknownReason} errMessage={!hasSetAppConfig ? 'Please set APP_ID and API_KEY in config/index.tsx' : ''} />
+    return <AppUnavailable isUnknownReason={isUnknownReason}
+      errMessage={!token ? 'Missing token parameter in URL' : (!hasSetAppConfig ? 'Please set APP_ID and API_KEY in config/index.tsx' : '')} />
 
   if (!APP_ID || !APP_INFO || !promptConfig)
     return <Loading type='app' />
@@ -627,7 +696,7 @@ const Main: FC<IMainProps> = () => {
         onCreateNewChat={() => handleConversationIdChange('-1')}
       />
       <div className="flex rounded-t-2xl bg-white overflow-hidden">
-        {/* sidebar */}
+        {/* 侧边栏  */}
         {!isMobile && renderSidebar()}
         {isMobile && isShowSidebar && (
           <div className='fixed inset-0 z-50'
@@ -639,7 +708,7 @@ const Main: FC<IMainProps> = () => {
             </div>
           </div>
         )}
-        {/* main */}
+        {/* 主内容区域  */}
         <div className='flex-grow flex flex-col h-[calc(100vh_-_3rem)] overflow-y-auto'>
           <ConfigSence
             conversationName={conversationName}
@@ -652,7 +721,7 @@ const Main: FC<IMainProps> = () => {
             savedInputs={currInputs as Record<string, any>}
             onInputsChange={setCurrInputs}
           ></ConfigSence>
-
+          {/* 聊天区域 */}
           {
             hasSetInputs && (
               <div className='relative grow h-[200px] pc:w-[794px] max-w-full mobile:w-full pb-[66px] mx-auto mb-3.5 overflow-hidden'>

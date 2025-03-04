@@ -14,6 +14,9 @@ import Tooltip from '@/app/components/base/tooltip'
 import WorkflowProcess from '@/app/components/workflow/workflow-process'
 import { Markdown } from '@/app/components/base/markdown'
 import type { Emoji } from '@/types/tools'
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
+
+
 
 const OperationBtn = ({ innerContent, onClick, className }: { innerContent: React.ReactNode; onClick?: () => void; className?: string }) => (
   <div
@@ -72,7 +75,8 @@ const Answer: FC<IAnswerProps> = ({
 }) => {
   const { id, content, feedback, agent_thoughts, workflowProcess } = item
   const isAgentMode = !!agent_thoughts && agent_thoughts.length > 0
-
+  // 在组件顶部添加状态管理 (需要将组件改为类组件或使用 useState)
+  const [isThinkingExpanded, setIsThinkingExpanded] = React.useState(false);
   const { t } = useTranslation()
 
   /**
@@ -168,7 +172,9 @@ const Answer: FC<IAnswerProps> = ({
   return (
     <div key={id}>
       <div className='flex items-start'>
+        {/* 回答的svg */}
         <div className={`${s.answerIcon} w-10 h-10 shrink-0`}>
+          {/* 回答时显示loading的动图 */}
           {isResponding
             && <div className={s.typeingIcon}>
               <LoadingAnim type='avatar' />
@@ -178,20 +184,50 @@ const Answer: FC<IAnswerProps> = ({
         <div className={`${s.answerWrap}`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
             <div className={`ml-2 py-3 px-4 bg-gray-100 rounded-tr-2xl rounded-b-2xl ${workflowProcess && 'min-w-[480px]'}`}>
-              {workflowProcess && (
-                <WorkflowProcess data={workflowProcess} hideInfo />
+              {workflowProcess && <WorkflowProcess data={workflowProcess} hideInfo />}
+              {(isResponding && !content) ? (
+                <div className='flex items-center justify-center w-6 h-5'>
+                  <LoadingAnim type='text' />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* 可折叠的思考部分 */}
+                  {content.includes('<details') && (
+                    <div className="text-gray-400">
+                      <div
+                        className="flex items-center gap-1 cursor-pointer hover:bg-gray-200/50 px-2 py-1 rounded"
+                        onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
+                      >
+                        <ChevronRightIcon
+                          className={`h-3 w-3 transition-transform ${isThinkingExpanded ? 'rotate-90' : ''}`}
+                        />
+                        <span className="text-sm">
+                          深度思考
+                          {/* {content.match(/<summary>([\s\S]*?)<\/summary>/)?.[1]?.trim() || 'Thinking...'} */}
+                        </span>
+                      </div>
+                      {isThinkingExpanded && (
+                        <div className="mt-1 pl-5 text-sm border-l-2 border-gray-300">
+                          {/* 显示详细思考内容 */}
+                          {content
+                            .match(/<details[^>]*>([\s\S]*?)<\/details>/)?.[1]
+                            ?.replace(/<summary>[\s\S]*?<\/summary>/, '')
+                            .replace(/<\/?[^>]+(>|$)/g, '')
+                            .trim()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 回答主体内容 */}
+                  <Markdown
+                    content={content
+                      .replace(/<details[^>]*>[\s\S]*?<\/details>/, '')
+                      .replace(/<\/?[^>]+(>|$)/g, '')
+                      .trim()}
+                  />
+                </div>
               )}
-              {(isResponding && (isAgentMode ? (!content && (agent_thoughts || []).filter(item => !!item.thought || !!item.tool).length === 0) : !content))
-                ? (
-                  <div className='flex items-center justify-center w-6 h-5'>
-                    <LoadingAnim type='text' />
-                  </div>
-                )
-                : (isAgentMode
-                  ? agentModeAnswer
-                  : (
-                    <Markdown content={content} />
-                  ))}
             </div>
             <div className='absolute top-[-14px] right-[-14px] flex flex-row justify-end gap-1'>
               {!feedbackDisabled && !item.feedbackDisabled && renderItemOperation()}
