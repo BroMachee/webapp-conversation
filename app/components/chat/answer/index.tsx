@@ -169,6 +169,20 @@ const Answer: FC<IAnswerProps> = ({
     </div>
   )
 
+  // 新增工具函数 - 安全清理标签
+  const sanitizeContent = (text: string, isComplete: boolean) => {
+    if (isComplete) {
+      return text
+        .replace(/<details[\s\S]*?<\/details>/g, '') // 完成时彻底清除
+        .trim()
+    }
+    // 流式响应时临时隐藏标签
+    return text
+      .replace(/<details[^>]*>/g, '')   // 隐藏开标签
+      .replace(/<\/details>/g, '')      // 隐藏闭标签
+      .replace(/<summary>[^<]*<\/summary>/g, '') // 清除摘要
+  }
+
   return (
     <div key={id}>
       <div className='flex items-start'>
@@ -181,10 +195,13 @@ const Answer: FC<IAnswerProps> = ({
             </div>
           }
         </div>
+        {/* 右侧内容主体 */}
         <div className={`${s.answerWrap}`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
+            {/* 消息气泡容器 */}
             <div className={`ml-2 py-3 px-4 bg-gray-100 rounded-tr-2xl rounded-b-2xl ${workflowProcess && 'min-w-[480px]'}`}>
               {workflowProcess && <WorkflowProcess data={workflowProcess} hideInfo />}
+              {/* 内容加载状态判断 */}
               {(isResponding && !content) ? (
                 <div className='flex items-center justify-center w-6 h-5'>
                   <LoadingAnim type='text' />
@@ -194,6 +211,7 @@ const Answer: FC<IAnswerProps> = ({
                   {/* 可折叠的思考部分 */}
                   {content.includes('<details') && (
                     <div className="text-gray-400">
+                      {/* 折叠控制区 */}
                       <div
                         className="flex items-center gap-1 cursor-pointer hover:bg-gray-200/50 px-2 py-1 rounded"
                         onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
@@ -212,6 +230,8 @@ const Answer: FC<IAnswerProps> = ({
                           {content
                             .match(/<details[^>]*>([\s\S]*?)<\/details>/)?.[1]
                             ?.replace(/<summary>[\s\S]*?<\/summary>/, '')
+                            .replace(/<style[\s\S]*?<\/style>/g, '')
+                            .replace(/<[^>]+>/g, '')
                             .trim()}
                         </div>
                       )}
@@ -220,9 +240,9 @@ const Answer: FC<IAnswerProps> = ({
 
                   {/* 回答主体内容 */}
                   <Markdown
-                    content={content
-                      .replace(/<details[^>]*>[\s\S]*?<\/details>/, '')
-                      .trim()}
+                    // content={content.replace(/<details[^>]*>[\s\S]*?<\/details>/, '')
+                    //   .trim()}
+                    content={sanitizeContent(content, !isResponding)}
                   />
                 </div>
               )}
