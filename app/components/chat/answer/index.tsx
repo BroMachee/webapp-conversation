@@ -207,7 +207,7 @@ const Answer: FC<IAnswerProps> = ({
                         </span>
                       </div>
                       {isThinkingExpanded && (
-                        <div className="mt-1 pl-5 text-sm border-l-2 border-gray-300">
+                        <div className="mt-1 pl-5 text-sm border-l-2 border-gray-300" style={{ whiteSpace: 'pre-line' }}>
                           {/* 显示详细思考内容 */}
                           {content
                             .match(/<details[^>]*>([\s\S]*?)<\/details>/)?.[1]
