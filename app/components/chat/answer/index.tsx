@@ -212,7 +212,6 @@ const Answer: FC<IAnswerProps> = ({
                           {content
                             .match(/<details[^>]*>([\s\S]*?)<\/details>/)?.[1]
                             ?.replace(/<summary>[\s\S]*?<\/summary>/, '')
-                            .replace(/<\/?[^>]+(>|$)/g, '')
                             .trim()}
                         </div>
                       )}
@@ -223,7 +222,6 @@ const Answer: FC<IAnswerProps> = ({
                   <Markdown
                     content={content
                       .replace(/<details[^>]*>[\s\S]*?<\/details>/, '')
-                      .replace(/<\/?[^>]+(>|$)/g, '')
                       .trim()}
                   />
                 </div>
