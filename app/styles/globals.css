@@ -135,6 +135,34 @@ a {
   text-fill-color: transparent;
 }
 
+/* 针对整个滚动条容器 */
 ::-webkit-scrollbar {
-  display: none;
+  width: 5px;
+  /* 垂直滚动条的宽度 */
+  height: 5px;
+  /* 水平滚动条的高度，可根据需要调整 */
+}
+
+/* 去掉滑轨 */
+::-webkit-scrollbar-track {
+  background: transparent;
+  /* 透明背景 */
+  border: none;
+  /* 移除边框 */
+  box-shadow: none;
+  /* 移除阴影 */
+}
+
+/* 设置滑动条（thumb）的样式 */
+::-webkit-scrollbar-thumb {
+  background: #e7e3e3;
+  /* 滑动条颜色，可自定义 */
+  border-radius: 6px;
+  /* 四边圆滑，值越大越圆润 */
+}
+
+/* 鼠标悬停时滑动条的样式 */
+::-webkit-scrollbar-thumb:hover {
+  background: #9c9c9c;
+  /* 悬停时的颜色 */
 }

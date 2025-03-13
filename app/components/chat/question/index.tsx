@@ -19,6 +19,11 @@ const Question: FC<IQuestionProps> = ({ id, content, useCurrentUserAvatar, imgSr
         <div className={`${s.question} relative text-sm text-gray-900`}>
           <div
             className={'mr-2 py-3 px-4 bg-blue-500 rounded-tl-2xl rounded-b-2xl'}
+            style={{
+              maxWidth: '500px', // 设置最大宽度，可以根据需求调整
+              overflowWrap: 'break-word', // 确保长单词换行
+              wordBreak: 'break-word', // 处理连续字符换行
+            }}
           >
             {imgSrcs && imgSrcs.length > 0 && (
               <ImageGallery srcs={imgSrcs} />

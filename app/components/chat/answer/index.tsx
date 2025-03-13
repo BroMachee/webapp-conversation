@@ -1,6 +1,6 @@
 'use client'
 import type { FC } from 'react'
-import React from 'react'
+import React, { useEffect } from 'react'
 import { HandThumbDownIcon, HandThumbUpIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import LoadingAnim from '../loading-anim'
@@ -78,7 +78,8 @@ const Answer: FC<IAnswerProps> = ({
   // 在组件顶部添加状态管理 (需要将组件改为类组件或使用 useState)
   const [isThinkingExpanded, setIsThinkingExpanded] = React.useState(false);
   const { t } = useTranslation()
-
+  //TODO
+  const [isThinking, setIsThinking] = React.useState(false);
   /**
  * Render feedback results (distinguish between users and administrators)
  * User reviews cannot be cancelled in Console
@@ -182,6 +183,14 @@ const Answer: FC<IAnswerProps> = ({
       .replace(/<\/details>/g, '')      // 隐藏闭标签
       .replace(/<summary>[^<]*<\/summary>/g, '') // 清除摘要
   }
+
+  //TODO
+  useEffect(() => {
+    if (content.includes('</details>')) {
+      setIsThinking(false)
+      console.log("")
+    }
+  })
 
   return (
     <div key={id}>
